@@ -1,0 +1,11 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /files/{boardId}/{allPaths=**} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null
+        && request.resource.size < 10 * 1024 * 1024
+        && request.resource.contentType.matches('application/pdf|image/(jpeg|png)|application/vnd.(openxmlformats-officedocument|ms-excel|ms-word).*|application/msword');
+    }
+  }
+}

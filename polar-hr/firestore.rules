@@ -1,0 +1,29 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{db}/documents {
+    function signedIn() { return request.auth != null; }
+    function me() { return get(/databases/$(db)/documents/users/$(request.auth.uid)).data; }
+    function role() { return me().role; }
+    function active() { return signedIn() && exists(/databases/$(db)/documents/users/$(request.auth.uid)) && me().active != false; }
+    function isAdmin() { return active() && role() == 'admin'; }
+    function canBoard(b) { return active() && (b != 'finance' || role() in ['admin','finance','manager']); }
+    match /users/{u} {
+      allow read: if active() || (signedIn() && request.auth.uid == u);
+      allow write: if isAdmin();
+    }
+    match /boards/{b} {
+      allow read: if canBoard(b);
+      allow create, delete: if isAdmin();
+      allow update: if canBoard(b) && role() in ['admin','manager'];
+      match /items/{i} {
+        allow read: if canBoard(b);
+        allow create, update: if canBoard(b);
+        allow delete: if canBoard(b) && role() != 'staff';
+        match /updates/{x} {
+          allow read, create: if canBoard(b);
+          allow update, delete: if isAdmin();
+        }
+      }
+    }
+  }
+}
